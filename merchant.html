@@ -121,7 +121,6 @@
                         <hr>
                         <div class="order-footer">
                             <div style="display: flex; justify-content: space-between;">
-                                <strong>总计：¥${order.total}</strong>
                                 ${order.status === 'preparing' ?
                     `<button onclick="completeOrder('${orderKey}')">完成订单</button>` :
                     `<span>完成时间：${new Date(order.timestamp).toLocaleString()}</span>`}
@@ -145,4 +144,3 @@
 </script>
 </body>
 </html>
-
