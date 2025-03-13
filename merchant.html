@@ -2,65 +2,25 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商家后台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商家管理</title>
     <style>
-        body {
-            padding: 10px;
-            font-size: 15px;
-        }
-
-        .order-grid {
-            grid-template-columns: 1fr;
-            gap: 12px;
-        }
-
-        .order-card {
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-
-        .order-header {
-            flex-direction: column;
-            margin-bottom: 8px;
-        }
-
-        .order-footer button {
-            width: 100%;
-            margin-top: 10px;
-            padding: 12px;
-        }
-
-        /* 移动端响应式调整 */
-        @media (max-width: 768px) {
-            .order-item {
-                font-size: 14px;
-            }
-
-            .status-preparing, .status-completed {
-                font-size: 14px;
-            }
-
-            .order-header span:first-child {
-                margin-bottom: 5px;
-            }
-
-            .order-footer {
-                font-size: 14px;
-            }
-        }
-        body { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .order-card { padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        body { margin: 0; padding: 10px; font-family: Arial; }
+        .order-list { display: grid; gap: 10px; }
+        .order-card { border: 1px solid #eee; border-radius: 8px; padding: 15px; }
         .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .order-item { display: flex; justify-content: space-between; margin: 5px 0; }
-        .status-preparing { color: #2196F3; }
-        .status-completed { color: #4CAF50; }
+        .order-id { color: #666; }
+        .status { padding: 3px 8px; border-radius: 10px; }
+        .preparing { background: #2196F3; color: white; }
+        .completed { background: #4CAF50; color: white; }
+        .item-list { margin: 10px 0; }
+        .item { display: flex; align-items: center; margin: 5px 0; }
+        .item img { width: 40px; height: 40px; object-fit: cover; margin-right: 10px; }
     </style>
 </head>
 <body>
-<h1>订单管理</h1>
-<div class="order-grid" id="orderList"></div>
+<h2>订单管理</h2>
+<div class="order-list" id="orderList"></div>
 
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
@@ -78,63 +38,55 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    database.ref('orders').orderByChild('timestamp').on('value', snapshot => {
+    database.ref('orders').orderByChild('timestamp').on('value', async snapshot => {
         const orders = snapshot.val();
         const orderList = document.getElementById('orderList');
-        orderList.innerHTML = '';
+        orderList.innerHTML = orders ? '' : '<p>暂无订单</p>';
+
+        const menu = await database.ref('menu').once('value').then(s => s.val());
 
         Object.keys(orders).forEach(orderKey => {
             const order = orders[orderKey];
-            const orderCard = document.createElement('div');
-            orderCard.className = 'order-card';
+            const card = document.createElement('div');
+            card.className = 'order-card';
 
-            database.ref('menu').once('value').then(menuSnapshot => {
-                const menu = menuSnapshot.val();
-                let itemsHtml = '';
-
-                Object.keys(order.items).forEach(itemKey => {
-                    let itemName = '';
-                    let categoryName = '';
-
-                    Object.keys(menu).some(catKey => {
-                        if(menu[catKey].items[itemKey]) {
-                            itemName = menu[catKey].items[itemKey].name;
-                            categoryName = menu[catKey].name;
-                            return true;
-                        }
-                    });
-
-                    itemsHtml += `
-                            <div class="order-item">
-                                <span>${categoryName} - ${itemName}</span>
-                                <span>x${order.items[itemKey]}</span>
-                            </div>
-                        `;
+            let itemsHtml = '';
+            Object.keys(order.items).forEach(itemKey => {
+                let itemInfo = {};
+                Object.keys(menu).some(cat => {
+                    if(menu[cat].items[itemKey]) {
+                        itemInfo = menu[cat].items[itemKey];
+                        return true;
+                    }
                 });
 
-                orderCard.innerHTML = `
-                        <div class="order-header">
-                            <span>订单号：${orderKey.slice(-6)}</span>
-                            <span class="status-${order.status}">${order.status === 'preparing' ? '制作中' : '已完成'}</span>
-                        </div>
-                        ${itemsHtml}
-                        <hr>
-                        <div class="order-footer">
-                            <div style="display: flex; justify-content: space-between;">
-                                ${order.status === 'preparing' ?
-                    `<button onclick="completeOrder('${orderKey}')">完成订单</button>` :
-                    `<span>完成时间：${new Date(order.timestamp).toLocaleString()}</span>`}
+                itemsHtml += `
+                        <div class="item">
+                            <img src="${itemInfo.image || ''}">
+                            <div>
+                                <div>${itemInfo.name}</div>
+                                <small>数量: ${order.items[itemKey]}</small>
                             </div>
                         </div>
                     `;
             });
 
-            orderList.appendChild(orderCard);
+            card.innerHTML = `
+                    <div class="order-header">
+                        <div class="order-id">订单号：${orderKey.slice(-6)}</div>
+                        <div class="status ${order.status}">${order.status === 'preparing' ? '制作中' : '已完成'}</div>
+                    </div>
+                    <div class="item-list">${itemsHtml}</div>
+                    ${order.status === 'preparing' ?
+                `<button onclick="completeOrder('${orderKey}')" style="width:100%; padding:8px;">标记完成</button>` : ''}
+                `;
+
+            orderList.appendChild(card);
         });
     });
 
     function completeOrder(orderKey) {
-        if(confirm('确认标记该订单为已完成？')) {
+        if (confirm('确认订单已完成？')) {
             database.ref(`orders/${orderKey}`).update({
                 status: 'completed',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
