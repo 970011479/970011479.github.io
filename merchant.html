@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>商家后台</title>
+    <style>
+        body { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .order-card { padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .order-item { display: flex; justify-content: space-between; margin: 5px 0; }
+        .status-preparing { color: #2196F3; }
+        .status-completed { color: #4CAF50; }
+    </style>
+</head>
+<body>
+<h1>订单管理</h1>
+<div class="order-grid" id="orderList"></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBnESO0rNf27G75vX7eADhRsTb2L_XUMJo",
+        authDomain: "diancai-fac69.firebaseapp.com",
+        databaseURL: "https://diancai-fac69-default-rtdb.firebaseio.com",
+        projectId: "diancai-fac69",
+        storageBucket: "diancai-fac69.firebasestorage.app",
+        messagingSenderId: "57215593640",
+        appId: "1:57215593640:web:c8e48c644cc61cba27269d",
+        measurementId: "G-QD8L5YNL1B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    database.ref('orders').orderByChild('timestamp').on('value', snapshot => {
+        const orders = snapshot.val();
+        const orderList = document.getElementById('orderList');
+        orderList.innerHTML = '';
+
+        Object.keys(orders).forEach(orderKey => {
+            const order = orders[orderKey];
+            const orderCard = document.createElement('div');
+            orderCard.className = 'order-card';
+
+            database.ref('menu').once('value').then(menuSnapshot => {
+                const menu = menuSnapshot.val();
+                let itemsHtml = '';
+
+                Object.keys(order.items).forEach(itemKey => {
+                    let itemName = '';
+                    let categoryName = '';
+
+                    Object.keys(menu).some(catKey => {
+                        if(menu[catKey].items[itemKey]) {
+                            itemName = menu[catKey].items[itemKey].name;
+                            categoryName = menu[catKey].name;
+                            return true;
+                        }
+                    });
+
+                    itemsHtml += `
+                            <div class="order-item">
+                                <span>${categoryName} - ${itemName}</span>
+                                <span>x${order.items[itemKey]}</span>
+                            </div>
+                        `;
+                });
+
+                orderCard.innerHTML = `
+                        <div class="order-header">
+                            <span>订单号：${orderKey.slice(-6)}</span>
+                            <span class="status-${order.status}">${order.status === 'preparing' ? '制作中' : '已完成'}</span>
+                        </div>
+                        ${itemsHtml}
+                        <hr>
+                        <div class="order-footer">
+                            <div style="display: flex; justify-content: space-between;">
+                                <strong>总计：¥${order.total}</strong>
+                                ${order.status === 'preparing' ?
+                    `<button onclick="completeOrder('${orderKey}')">完成订单</button>` :
+                    `<span>完成时间：${new Date(order.timestamp).toLocaleString()}</span>`}
+                            </div>
+                        </div>
+                    `;
+            });
+
+            orderList.appendChild(orderCard);
+        });
+    });
+
+    function completeOrder(orderKey) {
+        if(confirm('确认标记该订单为已完成？')) {
+            database.ref(`orders/${orderKey}`).update({
+                status: 'completed',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+    }
+</script>
+</body>
+</html>
