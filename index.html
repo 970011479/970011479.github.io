@@ -2,60 +2,179 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在线菜单系统</title>
+    <title>在线点餐 - 用户端</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
-        .menu-item {
-            border: 1px solid #eee;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-            transition: transform 0.2s;
-        }
-        .menu-item:hover {
-            transform: translateX(5px);
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-        }
+        body { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .category-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .category-tab { padding: 10px; cursor: pointer; border: 1px solid #ddd; }
+        .category-tab.active { background: #4CAF50; color: white; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .menu-item { padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+        #cart { margin-top: 30px; padding: 20px; background: #f8f8f8; }
+        .cart-item { display: flex; justify-content: space-between; margin: 5px 0; }
     </style>
 </head>
 <body>
-    <h1>欢迎来到智能点餐系统 🍴</h1>
-    
-    <div class="menu-item">
-        <h2>经典汉堡套餐 🍔</h2>
-        <p>价格：￥38</p>
-        <button onclick="addToCart('汉堡套餐')">加入购物车</button>
-    </div>
+<h1>欢迎点餐</h1>
+<div class="category-tabs" id="categoryTabs"></div>
+<div class="menu-grid" id="menuContainer"></div>
 
-    <div class="menu-item">
-        <h2>意大利肉酱面 🍝</h2>
-        <p>价格：￥45</p>
-        <button onclick="addToCart('意大利面')">加入购物车</button>
-    </div>
+<div id="cart">
+    <h2>购物车</h2>
+    <div id="cartItems"></div>
+    <button onclick="placeOrder()" style="margin-top: 15px; width: 100%;">提交订单</button>
+</div>
 
-    <div id="cart" style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
-        <h3>购物车清单</h3>
-        <ul id="cart-list"></ul>
-    </div>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBnESO0rNf27G75vX7eADhRsTb2L_XUMJo",
+        authDomain: "diancai-fac69.firebaseapp.com",
+        databaseURL: "https://diancai-fac69-default-rtdb.firebaseio.com",
+        projectId: "diancai-fac69",
+        storageBucket: "diancai-fac69.firebasestorage.app",
+        messagingSenderId: "57215593640",
+        appId: "1:57215593640:web:c8e48c644cc61cba27269d",
+        measurementId: "G-QD8L5YNL1B"
+    };
 
-    <script>
-        let cart = [];
-        
-        function addToCart(item) {
-            cart.push(item);
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    let cart = {};
+
+    // 加载分类菜单
+    database.ref('menu').on('value', snapshot => {
+        const categories = snapshot.val();
+        const tabsContainer = document.getElementById('categoryTabs');
+        const menuContainer = document.getElementById('menuContainer');
+
+        tabsContainer.innerHTML = '';
+        menuContainer.innerHTML = '';
+
+        Object.keys(categories).forEach(catKey => {
+            // 创建分类标签
+            const tab = document.createElement('div');
+            tab.className = 'category-tab';
+            tab.textContent = categories[catKey].name;
+            tab.onclick = () => showCategory(catKey);
+            tabsContainer.appendChild(tab);
+
+            // 创建分类内容
+            const categoryDiv = document.createElement('div');
+            categoryDiv.id = `cat_${catKey}`;
+            categoryDiv.style.display = 'none';
+
+            Object.keys(categories[catKey].items).forEach(itemKey => {
+                const item = categories[catKey].items[itemKey];
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.innerHTML = `
+                        <h3>${item.name}</h3>
+                        <p>¥${item.price}</p>
+                        <p style="color: #666;">${item.desc}</p>
+                        <button onclick="addToCart('${itemKey}')">加入购物车</button>
+                    `;
+                categoryDiv.appendChild(itemDiv);
+            });
+
+            menuContainer.appendChild(categoryDiv);
+        });
+
+        // 默认显示第一个分类
+        const firstCatKey = Object.keys(categories)[0];
+        showCategory(firstCatKey);
+    });
+
+    function showCategory(catKey) {
+        document.querySelectorAll('.category-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('[id^="cat_"]').forEach(div => div.style.display = 'none');
+
+        document.querySelector(`#cat_${catKey}`).style.display = 'grid';
+        document.querySelector(`.category-tab:contains('${catKey}')`).classList.add('active');
+    }
+
+    function addToCart(itemKey) {
+        cart[itemKey] = (cart[itemKey] || 0) + 1;
+        updateCartDisplay();
+    }
+
+    function updateCartDisplay() {
+        const cartItems = document.getElementById('cartItems');
+        cartItems.innerHTML = '';
+
+        database.ref('menu').once('value').then(snapshot => {
+            const menu = snapshot.val();
+            let total = 0;
+
+            Object.keys(cart).forEach(itemKey => {
+                const quantity = cart[itemKey];
+                let itemName = '';
+
+                // 查找菜品名称
+                Object.keys(menu).some(catKey => {
+                    if(menu[catKey].items[itemKey]) {
+                        itemName = menu[catKey].items[itemKey].name;
+                        return true;
+                    }
+                });
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'cart-item';
+                itemDiv.innerHTML = `
+                        <span>${itemName} x${quantity}</span>
+                        <button onclick="removeFromCart('${itemKey}')">移除</button>
+                    `;
+                cartItems.appendChild(itemDiv);
+            });
+        });
+    }
+
+    function removeFromCart(itemKey) {
+        if(cart[itemKey] > 1) {
+            cart[itemKey]--;
+        } else {
+            delete cart[itemKey];
+        }
+        updateCartDisplay();
+    }
+
+    function placeOrder() {
+        if(Object.keys(cart).length === 0) {
+            alert('请先选择菜品');
+            return;
+        }
+
+        const newOrderRef = database.ref('orders').push();
+        newOrderRef.set({
+            items: cart,
+            total: calculateTotal(),
+            status: "preparing",
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            cart = {};
             updateCartDisplay();
-        }
+            alert(`下单成功！订单号：${newOrderRef.key}`);
+        });
+    }
 
-        function updateCartDisplay() {
-            const list = document.getElementById('cart-list');
-            list.innerHTML = cart.map(item => `<li>${item}</li>`).join('');
-        }
-    </script>
+    function calculateTotal() {
+        return Object.keys(cart).reduce((sum, itemKey) => {
+            return database.ref('menu').once('value').then(snapshot => {
+                const menu = snapshot.val();
+                let price = 0;
+
+                Object.keys(menu).some(catKey => {
+                    if(menu[catKey].items[itemKey]) {
+                        price = menu[catKey].items[itemKey].price;
+                        return true;
+                    }
+                });
+
+                return sum + (price * cart[itemKey]);
+            });
+        }, 0);
+    }
+</script>
 </body>
 </html>
