@@ -6,19 +6,84 @@
     <title>手机点餐</title>
     <style>
         body { margin: 0; padding: 10px; font-family: Arial; }
-        .category-tabs { display: flex; overflow-x: auto; gap: 8px; padding: 5px 0; }
-        .category-tab { padding: 8px 15px; border-radius: 20px; background: #f0f0f0; flex-shrink: 0; }
-        .category-tab.active { background: #4CAF50; color: white; }
-        .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0; }
-        .menu-item { border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center; }
-        .item-image { width: 100%; height: 120px; object-fit: cover; border-radius: 5px; }
-        #cart { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
-        .cart-item { display: flex; justify-content: space-between; padding: 5px 0; }
+        .category-tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding: 5px 0;
+            -webkit-overflow-scrolling: touch; /* 流畅滚动 */
+        }
+        .category-tab {
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: #f0f0f0;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .category-tab.active {
+            background: #4CAF50;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .menu-container {
+            position: relative;
+            min-height: 60vh;
+        }
+        .category-content {
+            display: none;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+            animation: fadeIn 0.3s ease;
+        }
+        .category-content.active {
+            display: grid;
+        }
+        .menu-item {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            background: white;
+        }
+        .item-image {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 8px;
+        }
+        #cart {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+        #cart.hidden {
+            transform: translateY(100%);
+        }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 <div class="category-tabs" id="categoryTabs"></div>
-<div class="menu-grid" id="menuContainer"></div>
+<div class="menu-container" id="menuContainer"></div>
 
 <div id="cart">
     <h3>购物车 (<span id="cartCount">0</span>)</h3>
@@ -48,50 +113,82 @@
     database.ref('menu').on('value', snapshot => {
         const categories = snapshot.val();
         const tabs = document.getElementById('categoryTabs');
-        const menu = document.getElementById('menuContainer');
+        const menuContainer = document.getElementById('menuContainer');
 
         tabs.innerHTML = '';
-        menu.innerHTML = '';
+        menuContainer.innerHTML = '';
 
         Object.keys(categories).forEach(catKey => {
-            // 分类标签
+            // 创建分类标签
             const tab = document.createElement('div');
             tab.className = 'category-tab';
             tab.textContent = categories[catKey].name;
+            tab.dataset.category = catKey;
             tab.onclick = () => showCategory(catKey);
             tabs.appendChild(tab);
 
-            // 分类内容
+            // 创建分类内容容器
             const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'category-content';
+            categoryDiv.id = `category-${catKey}`;
+
+            // 添加菜品项
             Object.keys(categories[catKey].items).forEach(itemKey => {
                 const item = categories[catKey].items[itemKey];
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'menu-item';
                 itemDiv.innerHTML = `
                         <img src="${item.image}" class="item-image" loading="lazy">
-                        <h3>${item.name}</h3>
-                        <p style="color:#666;">${item.desc}</p>
-                        <button onclick="addToCart('${itemKey}')" style="margin-top:5px;">加入购物车</button>
+                        <h3 style="margin:5px 0; font-size:16px;">${item.name}</h3>
+                        ${item.desc ? `<p style="color:#666; font-size:12px;">${item.desc}</p>` : ''}
+                        <button onclick="addToCart('${itemKey}')"
+                                style="margin-top:8px; padding:6px 12px; background:#4CAF50; color:white; border:none; border-radius:20px;">
+                            + 加入
+                        </button>
                     `;
                 categoryDiv.appendChild(itemDiv);
             });
-            menu.appendChild(categoryDiv);
+
+            menuContainer.appendChild(categoryDiv);
         });
 
-        if (Object.keys(categories).length > 0) {
-            showCategory(Object.keys(categories)[0]);
-            document.querySelector('.category-tab').classList.add('active');
+        // 默认显示第一个分类
+        const firstCategory = Object.keys(categories)[0];
+        if (firstCategory) {
+            document.querySelector(`[data-category="${firstCategory}"]`).classList.add('active');
+            document.getElementById(`category-${firstCategory}`).classList.add('active');
         }
     });
 
     function showCategory(catKey) {
-        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector(`.category-tab:contains('${catKey}')`).classList.add('active');
+        // 更新标签状态
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-category="${catKey}"]`).classList.add('active');
+
+        // 更新内容显示
+        document.querySelectorAll('.category-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`category-${catKey}`).classList.add('active');
+
+        // 自动滚动到可视区域
+        const activeTab = document.querySelector(`[data-category="${catKey}"]`);
+        activeTab.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+        });
     }
 
     function addToCart(itemKey) {
         cart[itemKey] = (cart[itemKey] || 0) + 1;
         updateCart();
+        // 添加动画反馈
+        const btn = event.target;
+        btn.style.transform = 'scale(0.9)';
+        setTimeout(() => btn.style.transform = 'scale(1)', 100);
     }
 
     function updateCart() {
@@ -116,8 +213,18 @@
                 const div = document.createElement('div');
                 div.className = 'cart-item';
                 div.innerHTML = `
-                        <span>${itemName} x${cart[key]}</span>
-                        <button onclick="removeFromCart('${key}')">移除</button>
+                        <span style="flex-grow:1;">${itemName}</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button onclick="adjustQuantity('${key}', -1)"
+                                    style="padding:2px 8px; border-radius:50%; background:#eee;">
+                                -
+                            </button>
+                            <span>${cart[key]}</span>
+                            <button onclick="adjustQuantity('${key}', 1)"
+                                    style="padding:2px 8px; border-radius:50%; background:#eee;">
+                                +
+                            </button>
+                        </div>
                     `;
                 cartItems.appendChild(div);
             });
@@ -125,9 +232,13 @@
         });
     }
 
-    function removeFromCart(itemKey) {
-        if (cart[itemKey] > 1) cart[itemKey]--;
-        else delete cart[itemKey];
+    function adjustQuantity(itemKey, delta) {
+        const newQty = (cart[itemKey] || 0) + delta;
+        if (newQty > 0) {
+            cart[itemKey] = newQty;
+        } else {
+            delete cart[itemKey];
+        }
         updateCart();
     }
 
@@ -142,8 +253,19 @@
             cart = {};
             updateCart();
             alert('下单成功！');
+            // 添加下单成功动画
+            const cartElement = document.getElementById('cart');
+            cartElement.classList.add('hidden');
+            setTimeout(() => cartElement.classList.remove('hidden'), 500);
         });
     }
+
+    // 初始化隐藏购物车，当有商品时自动显示
+    let cartObserver = new MutationObserver(() => {
+        const cartElement = document.getElementById('cart');
+        cartElement.classList.toggle('hidden', Object.keys(cart).length === 0);
+    });
+    cartObserver.observe(document.getElementById('cartItems'), { childList: true });
 </script>
 </body>
 </html>
