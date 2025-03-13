@@ -28,6 +28,7 @@
         .menu-grid {
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 10px;
+            overflow-y: auto;
         }
 
         .menu-item {
@@ -144,7 +145,6 @@
                 itemDiv.className = 'menu-item';
                 itemDiv.innerHTML = `
                         <h3>${item.name}</h3>
-                        <p>¥${item.price}</p>
                         <p style="color: #666;">${item.desc}</p>
                         <button onclick="addToCart('${itemKey}')">加入购物车</button>
                     `;
@@ -221,7 +221,6 @@
         const newOrderRef = database.ref('orders').push();
         newOrderRef.set({
             items: cart,
-            total: calculateTotal(),
             status: "preparing",
             timestamp: firebase.database.ServerValue.TIMESTAMP
         }).then(() => {
@@ -231,24 +230,6 @@
         });
     }
 
-    function calculateTotal() {
-        return Object.keys(cart).reduce((sum, itemKey) => {
-            return database.ref('menu').once('value').then(snapshot => {
-                const menu = snapshot.val();
-                let price = 0;
-
-                Object.keys(menu).some(catKey => {
-                    if(menu[catKey].items[itemKey]) {
-                        price = menu[catKey].items[itemKey].price;
-                        return true;
-                    }
-                });
-
-                return sum + (price * cart[itemKey]);
-            });
-        }, 0);
-    }
 </script>
 </body>
 </html>
-
