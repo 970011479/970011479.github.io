@@ -200,21 +200,22 @@
 
             // 生成菜品列表
             let itemsHtml = '';
-            Object.keys(order.items).forEach(itemKey => {
-                const quantity = order.items[itemKey];
-                let itemInfo = null;
+            Object.keys(order.items).forEach(typeKey => {
+                Object.keys(order.items[typeKey]).forEach(categoryKey => {
+                    Object.keys(order.items[typeKey][categoryKey]).forEach(dishKey => {
+                        const quantity = order.items[typeKey][categoryKey][dishKey];
+                        let itemInfo = null;
 
-                // 在菜单中查找菜品信息
-                Object.values(menuData).some(type => {
-                    return Object.values(type.categories).some(category => {
-                        if (category.items[itemKey]) {
-                            itemInfo = category.items[itemKey];
-                            return true;
+                        // 在菜单中查找菜品信息
+                        if (
+                            menuData[typeKey] &&
+                            menuData[typeKey].categories[categoryKey] &&
+                            menuData[typeKey].categories[categoryKey].items[dishKey]
+                        ) {
+                            itemInfo = menuData[typeKey].categories[categoryKey].items[dishKey];
                         }
-                    });
-                });
 
-                itemsHtml += `
+                        itemsHtml += `
                         <div class="order-item">
                             <img src="${itemInfo?.image || ''}"
                                  class="item-image"
@@ -226,36 +227,38 @@
                             <div class="item-quantity">x${quantity}</div>
                         </div>
                     `;
+                    });
+                });
             });
 
             orderCard.innerHTML = `
-                    <div class="order-header">
-                        <div>
-                            <div class="order-id">订单号：${orderKey.slice(-6)}</div>
-                            <div class="order-time">${timeString}</div>
-                        </div>
-                        <div>
-                            <span class="order-type">${order.type}</span>
-                            <span class="order-status status-${order.status}">
-                                ${order.status === 'preparing' ? '进行中' : '已完成'}
-                            </span>
-                        </div>
+                <div class="order-header">
+                    <div>
+                        <div class="order-id">订单号：${orderKey.slice(-6)}</div>
+                        <div class="order-time">${timeString}</div>
                     </div>
-
-                    ${order.note ? `<div class="order-note">备注：${order.note}</div>` : ''}
-
-                    <div class="item-list">
-                        ${itemsHtml}
+                    <div>
+                        <span class="order-type">${order.type}</span>
+                        <span class="order-status status-${order.status}">
+                            ${order.status === 'preparing' ? '进行中' : '已完成'}
+                        </span>
                     </div>
+                </div>
 
-                    ${order.status === 'preparing' ? `
-                        <div style="text-align: right; margin-top: 15px;">
-                            <button class="complete-btn" onclick="completeOrder('${orderKey}')">
-                                标记为已完成
-                            </button>
-                        </div>
-                    ` : ''}
-                `;
+                ${order.note ? `<div class="order-note">备注：${order.note}</div>` : ''}
+
+                <div class="item-list">
+                    ${itemsHtml}
+                </div>
+
+                ${order.status === 'preparing' ? `
+                    <div style="text-align: right; margin-top: 15px;">
+                        <button class="complete-btn" onclick="completeOrder('${orderKey}')">
+                            标记为已完成
+                        </button>
+                    </div>
+                ` : ''}
+            `;
 
             orderList.prepend(orderCard); // 新订单显示在最前面
         });
