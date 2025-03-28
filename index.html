@@ -6,7 +6,13 @@
     <title>手机点餐系统 v0.2</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { padding: 10px; background: #f5f5f5; font-family: Arial; }
+        body {
+            /* 初始底部内边距 */
+            padding: 10px 10px 60px;
+            background: #f5f5f5;
+            font-family: Arial;
+            position: relative;
+        }
 
         /* 类型选择 */
         .type-tabs {
@@ -49,13 +55,14 @@
             color: white;
         }
 
-        /* 菜品列表 */
+        /* 菜单网格调整 */
         .menu-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
-
+            margin-bottom: 20px;
         }
+
         .menu-item {
             background: white;
             padding: 10px;
@@ -79,12 +86,30 @@
             right: 0;
             background: white;
             padding: 15px;
-            box-shadow: 0 0 10px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             margin-left: 10px;
             margin-right: 10px;
-            border-radius: 8px;
-            display: none; /* 初始隐藏购物车 */
-            flex-direction: column; /* 垂直排列子元素 */
+            border-radius: 8px 8px 0 0;
+            display: none;
+            flex-direction: column;
+            max-height: 50vh;
+            overflow-y: auto;
+            z-index: 100;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+        /* 购物车收起状态 */
+        #cart.collapsed {
+            transform: translateY(calc(100% - 60px));
+        }
+
+        /* 购物车标题栏 */
+        #cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding-bottom: 10px;
         }
 
         .cart-item {
@@ -153,6 +178,42 @@
             font-size: 14px;
             color: #333;
         }
+
+        /* 统一加减按钮样式 */
+        .cart-quantity-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            border: 1px solid #4CAF50;
+            background-color: white;
+            color: #4CAF50;
+        }
+
+        .cart-quantity-btn.plus {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .cart-quantity-btn.minus {
+            background-color: white;
+            color: #4CAF50;
+        }
+
+        /* 确保数量显示居中 */
+        .cart-quantity {
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .cart-quantity-btn:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -161,10 +222,13 @@
 <div class="menu-grid" id="menuContainer"></div>
 
 <div id="cart">
-    <h3>购物车 (<span id="cartCount">0</span>)</h3>
-    <div id="cartItems"></div>
-    <textarea id="orderNote" placeholder="请输入备注信息（可选）" rows="2"></textarea>
-    <button onclick="placeOrder()" style="width:50%; padding:12px; background:#4CAF50; color:white; border:none; border-radius:8px; margin: 10px auto 0;cursor: pointer;">
+    <div id="cart-header" onclick="toggleCart()">
+        <h3>购物车 (<span id="cartCount">0</span>)</h3>
+        <span id="cart-toggle"></span>
+    </div>
+    <div id="cartItems" style="display: none;"></div>
+    <textarea id="orderNote" placeholder="请输入备注信息（可选）" rows="2" style="display: none;"></textarea>
+    <button onclick="placeOrder()" style="width:50%; padding:12px; background:#4CAF50; color:white; border:none; border-radius:8px; margin: 10px auto 0;cursor: pointer; display: none;">
         提交订单
     </button>
 </div>
@@ -175,14 +239,12 @@
         <h2>版本更新公告❗❗❗</h2>
         <p>更新内容：</p>
         <ul>
-            <li>美观优化界面、修改菜品分类。</li>
-            <li>新增番茄炖牛肉、宫保鸡丁、红烧排骨等肉菜。</li>
-            <li>新增蒜蓉西兰花、鱼香茄子、麻婆豆腐等素菜。</li>
-            <li>新增馒头、面皮、炒饭、锅锅面等主食。</li>
-            <li>新增西红柿鸡蛋汤、紫菜蛋花汤等汤品。</li>
+            <li>修复购物车遮挡菜品问题。</li>
+            <li>新增点外卖菜品。</li>
         </ul>
     </div>
 </div>
+
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 <script>
@@ -315,6 +377,32 @@
         }
     }
 
+    let isCartExpanded = false;
+
+    function toggleCart() {
+        const cart = document.getElementById('cart');
+        const cartItems = document.getElementById('cartItems');
+        const orderNote = document.getElementById('orderNote');
+        const submitBtn = document.querySelector('#cart button');
+        const toggleIcon = document.getElementById('cart-toggle');
+
+        isCartExpanded = !isCartExpanded;
+
+        if (isCartExpanded) {
+            cart.classList.remove('collapsed');
+            cartItems.style.display = 'block';
+            orderNote.style.display = 'block';
+            submitBtn.style.display = 'block';
+            toggleIcon.textContent = '▲';
+        } else {
+            cart.classList.add('collapsed');
+            cartItems.style.display = 'none';
+            orderNote.style.display = 'none';
+            submitBtn.style.display = 'none';
+            toggleIcon.textContent = '▼';
+        }
+    }
+
     function updateCartDisplay() {
         const cartItems = document.getElementById('cartItems');
         const cartCount = document.getElementById('cartCount');
@@ -345,39 +433,13 @@
                 const div = document.createElement('div');
                 div.className = 'cart-item';
                 div.innerHTML = `
-                <span>${itemName}</span>
-                <div style="display:flex; align-items:center; gap:4px;">
-                    <button onclick="adjustQuantity('${uniqueItemKey}', -1)" style="
-                        width: 14px;
-                        height: 14px;
-                        border-radius: 50%;
-                        background-color: white;
-                        border: 1px solid #4CAF50;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 16px;
-                        color: #4CAF50;
-                        cursor: pointer;
-                        padding: 0;
-                    ">-</button>
-                    <span>${cart[uniqueItemKey]}</span>
-                    <button onclick="adjustQuantity('${uniqueItemKey}', 1)" style="
-                        width: 14px;
-                        height: 14px;
-                        border-radius: 50%;
-                        background-color: #4CAF50;
-                        border: 1px solid #4CAF50;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 16px;
-                        color: white;
-                        cursor: pointer;
-                        padding: 0;
-                    ">+</button>
-                </div>
-            `;
+    <span>${itemName}</span>
+    <div style="display:flex; align-items:center; gap:4px;">
+        <button class="cart-quantity-btn minus" onclick="adjustQuantity('${uniqueItemKey}', -1)">-</button>
+        <span class="cart-quantity">${cart[uniqueItemKey]}</span>
+        <button class="cart-quantity-btn plus" onclick="adjustQuantity('${uniqueItemKey}', 1)">+</button>
+    </div>
+`;
                 cartItems.appendChild(div);
             });
 
@@ -387,7 +449,14 @@
             if (totalCount === 0) {
                 cartElement.style.display = 'none';
             } else {
-                cartElement.style.display = 'flex'; // 或者 'block'
+                cartElement.style.display = 'flex';
+                // 默认收起购物车
+                if (!isCartExpanded) {
+                    cartElement.classList.add('collapsed');
+                    document.getElementById('cartItems').style.display = 'none';
+                    document.getElementById('orderNote').style.display = 'none';
+                    document.querySelector('#cart button').style.display = 'none';
+                }
             }
         }).catch(error => {
             console.error('获取菜单数据失败:', error); // 调试输出
