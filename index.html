@@ -224,11 +224,12 @@
 <div id="cart">
     <div id="cart-header" onclick="toggleCart()">
         <h3>购物车 (<span id="cartCount">0</span>)</h3>
-        <span id="cart-toggle"></span>
+        <span id="cart-toggle">▼</span>
     </div>
     <div id="cartItems" style="display: none;"></div>
     <textarea id="orderNote" placeholder="请输入备注信息（可选）" rows="2" style="display: none;"></textarea>
-    <button onclick="placeOrder()" style="width:50%; padding:12px; background:#4CAF50; color:white; border:none; border-radius:8px; margin: 10px auto 0;cursor: pointer; display: none;">
+    <!-- 添加ID到提交按钮 -->
+    <button id="submitOrderBtn" onclick="placeOrder()" style="width:50%; padding:12px; background:#4CAF50; color:white; border:none; border-radius:8px; margin: 10px auto 0;cursor: pointer; display: none;">
         提交订单
     </button>
 </div>
@@ -239,8 +240,8 @@
         <h2>版本更新公告❗❗❗</h2>
         <p>更新内容：</p>
         <ul>
-            <li>修复购物车遮挡菜品问题。</li>
-            <li>新增点外卖菜品。</li>
+            <li>修复购物车提交订单按钮消失的问题。</li>
+            <li>新增多种菜品。</li>
         </ul>
     </div>
 </div>
@@ -248,18 +249,24 @@
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 <script>
-    // 页面加载完成后显示提示框
-    window.onload = function () {
+
+        // 页面加载完成后显示提示框
+        window.onload = function() {
         const modal = document.getElementById('updateModal');
-        modal.style.display = 'flex'; // 显示提示框
+        modal.style.display = 'flex';
+
+        // 初始化购物车状态
+        document.getElementById('cart').style.display = 'none';
+        document.getElementById('cart').classList.add('collapsed');
+        isCartExpanded = false;
     };
 
-    // 关闭提示框
-    function closeModal() {
+        // 关闭提示框
+        function closeModal() {
         const modal = document.getElementById('updateModal');
-        modal.style.display = 'none'; // 隐藏提示框
+        modal.style.display = 'none';
     }
-    const firebaseConfig = {
+        const firebaseConfig = {
         apiKey: "AIzaSyALQN8YJqFaBkODuXgzMKmQv0FGIzwa4Do",
         authDomain: "restaurant-805a0.firebaseapp.com",
         databaseURL: "https://restaurant-805a0-default-rtdb.firebaseio.com",
@@ -270,81 +277,81 @@
         measurementId: "G-7T1JTRSNH7"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
-    let cart = {};
-    let currentTypeKey = null;
-    let currentCategoryKey = null;
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        let cart = {};
+        let currentTypeKey = null;
+        let currentCategoryKey = null;
 
-    // 初始化加载菜单
-    database.ref('menu').on('value', snapshot => {
+        // 初始化加载菜单
+        database.ref('menu').on('value', snapshot => {
         const menuData = snapshot.val();
         initTypeTabs(menuData);
     });
 
-    function initTypeTabs(menuData) {
+        function initTypeTabs(menuData) {
         const typeTabs = document.getElementById('typeTabs');
         typeTabs.innerHTML = '';
 
         Object.keys(menuData).forEach(typeKey => {
-            const type = menuData[typeKey];
-            const tab = document.createElement('div');
-            tab.className = 'type-tab';
-            tab.textContent = type.name;
-            tab.dataset.typeKey = typeKey;
-            tab.onclick = () => {
-                currentTypeKey = typeKey;
-                document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                loadCategories(menuData[typeKey].categories);
-            };
-            typeTabs.appendChild(tab);
-        });
+        const type = menuData[typeKey];
+        const tab = document.createElement('div');
+        tab.className = 'type-tab';
+        tab.textContent = type.name;
+        tab.dataset.typeKey = typeKey;
+        tab.onclick = () => {
+        currentTypeKey = typeKey;
+        document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadCategories(menuData[typeKey].categories);
+    };
+        typeTabs.appendChild(tab);
+    });
 
         // 默认选中第一个类型
         const firstTypeKey = Object.keys(menuData)[0];
         if (firstTypeKey) {
-            currentTypeKey = firstTypeKey;
-            document.querySelector(`.type-tab[data-type-key="${firstTypeKey}"]`).click();
-        }
+        currentTypeKey = firstTypeKey;
+        document.querySelector(`.type-tab[data-type-key="${firstTypeKey}"]`).click();
+    }
     }
 
-    function loadCategories(categoriesData) {
+        function loadCategories(categoriesData) {
         const categoryTabs = document.getElementById('categoryTabs');
         categoryTabs.innerHTML = '';
 
         Object.keys(categoriesData).forEach(categoryKey => {
-            const category = categoriesData[categoryKey];
-            const tab = document.createElement('div');
-            tab.className = 'category-tab';
-            tab.textContent = category.name;
-            tab.dataset.categoryKey = categoryKey;
-            tab.onclick = () => {
-                currentCategoryKey = categoryKey; // 确保 currentCategoryKey 更新
-                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                loadItems(categoriesData[categoryKey].items);
-            };
-            categoryTabs.appendChild(tab);
-        });
+        const category = categoriesData[categoryKey];
+        const tab = document.createElement('div');
+        tab.className = 'category-tab';
+        tab.textContent = category.name;
+        tab.dataset.categoryKey = categoryKey;
+        tab.onclick = () => {
+        currentCategoryKey = categoryKey;
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadItems(categoriesData[categoryKey].items);
+    };
+        categoryTabs.appendChild(tab);
+    });
 
         // 默认选中第一个分类
         const firstCategoryKey = Object.keys(categoriesData)[0];
         if (firstCategoryKey) {
-            currentCategoryKey = firstCategoryKey;
-            document.querySelector(`.category-tab[data-category-key="${firstCategoryKey}"]`).click();
-        }
+        currentCategoryKey = firstCategoryKey;
+        document.querySelector(`.category-tab[data-category-key="${firstCategoryKey}"]`).click();
+    }
     }
 
-    function loadItems(itemsData) {
+        function loadItems(itemsData) {
         const menuContainer = document.getElementById('menuContainer');
         menuContainer.innerHTML = '';
 
         Object.keys(itemsData).forEach(dishKey => {
-            const item = itemsData[dishKey];
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'menu-item';
-            itemDiv.innerHTML = `
+        const item = itemsData[dishKey];
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'menu-item';
+        itemDiv.innerHTML = `
                 <img src="${item.image}" class="item-image" onerror="this.style.display='none'">
                 <h3>${item.name}</h3>
                 <p style="color:#666; font-size:14px;">${item.desc}</p>
@@ -353,15 +360,15 @@
                     加入购物车
                 </button>
             `;
-            menuContainer.appendChild(itemDiv);
-        });
+        menuContainer.appendChild(itemDiv);
+    });
     }
 
-    function addToCart(dishKey) {
+        function addToCart(dishKey) {
         if (!currentTypeKey || !currentCategoryKey) {
-            alert('请先选择类型和分类');
-            return;
-        }
+        alert('请先选择类型和分类');
+        return;
+    }
 
         // 生成唯一的标识符
         const uniqueItemKey = `${currentTypeKey}_${currentCategoryKey}_${dishKey}`;
@@ -373,66 +380,61 @@
         // 如果购物车是隐藏的，则显示它
         const cartElement = document.getElementById('cart');
         if (cartElement.style.display === 'none') {
-            cartElement.style.display = 'flex'; // 或者 'block'
-        }
+        cartElement.style.display = 'flex';
+    }
     }
 
-    let isCartExpanded = false;
+        let isCartExpanded = false;
 
-    function toggleCart() {
+        function toggleCart() {
         const cart = document.getElementById('cart');
         const cartItems = document.getElementById('cartItems');
         const orderNote = document.getElementById('orderNote');
-        const submitBtn = document.querySelector('#cart button');
+        // 使用ID获取提交按钮
+        const submitBtn = document.getElementById('submitOrderBtn');
         const toggleIcon = document.getElementById('cart-toggle');
 
         isCartExpanded = !isCartExpanded;
 
         if (isCartExpanded) {
-            cart.classList.remove('collapsed');
-            cartItems.style.display = 'block';
-            orderNote.style.display = 'block';
-            submitBtn.style.display = 'block';
-            toggleIcon.textContent = '▲';
-        } else {
-            cart.classList.add('collapsed');
-            cartItems.style.display = 'none';
-            orderNote.style.display = 'none';
-            submitBtn.style.display = 'none';
-            toggleIcon.textContent = '▼';
-        }
+        cart.classList.remove('collapsed');
+        cartItems.style.display = 'block';
+        orderNote.style.display = 'block';
+        submitBtn.style.display = 'block';
+        toggleIcon.textContent = '▲';
+    } else {
+        cart.classList.add('collapsed');
+        cartItems.style.display = 'none';
+        orderNote.style.display = 'none';
+        submitBtn.style.display = 'none';
+        toggleIcon.textContent = '▼';
+    }
     }
 
-    function updateCartDisplay() {
+        function updateCartDisplay() {
         const cartItems = document.getElementById('cartItems');
         const cartCount = document.getElementById('cartCount');
         const cartElement = document.getElementById('cart');
+        // 使用ID获取提交按钮
+        const submitBtn = document.getElementById('submitOrderBtn');
         cartItems.innerHTML = '';
 
         database.ref('menu').once('value').then(snapshot => {
-            const menuData = snapshot.val();
-            let totalCount = 0;
+        const menuData = snapshot.val();
+        let totalCount = 0;
 
-            Object.keys(cart).forEach(uniqueItemKey => {
-                // 解析 uniqueItemKey
-                const [typeKey, categoryKey, dishKey] = uniqueItemKey.split('_');
-                console.log('Parsed keys:', { typeKey, categoryKey, dishKey }); // 调试输出
+        Object.keys(cart).forEach(uniqueItemKey => {
+        const [typeKey, categoryKey, dishKey] = uniqueItemKey.split('_');
+        let itemName = '未知菜品';
 
-                let itemName = '未知菜品';
-                if (
-                    menuData[typeKey] &&
-                    menuData[typeKey].categories[categoryKey] &&
-                    menuData[typeKey].categories[categoryKey].items[dishKey]
-                ) {
-                    itemName = menuData[typeKey].categories[categoryKey].items[dishKey].name;
-                } else {
-                    console.error('未找到菜品信息:', { typeKey, categoryKey, dishKey }); // 调试输出
-                }
+        if (menuData[typeKey]?.categories[categoryKey]?.items[dishKey]) {
+        itemName = menuData[typeKey].categories[categoryKey].items[dishKey].name;
+    }
 
-                totalCount += cart[uniqueItemKey];
-                const div = document.createElement('div');
-                div.className = 'cart-item';
-                div.innerHTML = `
+        totalCount += cart[uniqueItemKey];
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
     <span>${itemName}</span>
     <div style="display:flex; align-items:center; gap:4px;">
         <button class="cart-quantity-btn minus" onclick="adjustQuantity('${uniqueItemKey}', -1)">-</button>
@@ -440,71 +442,72 @@
         <button class="cart-quantity-btn plus" onclick="adjustQuantity('${uniqueItemKey}', 1)">+</button>
     </div>
 `;
-                cartItems.appendChild(div);
-            });
+        cartItems.appendChild(div);
+    });
 
-            cartCount.textContent = totalCount;
+        cartCount.textContent = totalCount;
 
-            // 如果购物车为空，隐藏购物车
-            if (totalCount === 0) {
-                cartElement.style.display = 'none';
-            } else {
-                cartElement.style.display = 'flex';
-                // 默认收起购物车
-                if (!isCartExpanded) {
-                    cartElement.classList.add('collapsed');
-                    document.getElementById('cartItems').style.display = 'none';
-                    document.getElementById('orderNote').style.display = 'none';
-                    document.querySelector('#cart button').style.display = 'none';
-                }
-            }
-        }).catch(error => {
-            console.error('获取菜单数据失败:', error); // 调试输出
-        });
+        if (totalCount === 0) {
+        cartElement.style.display = 'none';
+    } else {
+        cartElement.style.display = 'flex';
+
+        if (isCartExpanded) {
+        cartElement.classList.remove('collapsed');
+        cartItems.style.display = 'block';
+        orderNote.style.display = 'block';
+        submitBtn.style.display = 'block';
+    } else {
+        cartElement.classList.add('collapsed');
+        cartItems.style.display = 'none';
+        orderNote.style.display = 'none';
+        submitBtn.style.display = 'none';
+    }
+    }
+    });
     }
 
-
-    function adjustQuantity(uniqueItemKey, delta) {
+        function adjustQuantity(uniqueItemKey, delta) {
         const newQty = (cart[uniqueItemKey] || 0) + delta;
         if (newQty > 0) {
-            cart[uniqueItemKey] = newQty;
-        } else {
-            delete cart[uniqueItemKey];
-        }
+        cart[uniqueItemKey] = newQty;
+    } else {
+        delete cart[uniqueItemKey];
+    }
         updateCartDisplay();
     }
 
-    function placeOrder() {
+        function placeOrder() {
         if (Object.keys(cart).length === 0) return alert('请先选择菜品');
 
         database.ref('menu').once('value').then(snapshot => {
-            const menuData = snapshot.val();
-            const typeName = menuData[currentTypeKey].name;
-            const note = document.getElementById('orderNote').value.trim();
+        const menuData = snapshot.val();
+        const typeName = menuData[currentTypeKey].name;
+        const note = document.getElementById('orderNote').value.trim();
 
-            // 解析购物车中的 uniqueItemKey
-            const orderItems = {};
-            Object.keys(cart).forEach(uniqueItemKey => {
-                const [typeKey, categoryKey, itemKey] = uniqueItemKey.split('_');
-                if (!orderItems[typeKey]) orderItems[typeKey] = {};
-                if (!orderItems[typeKey][categoryKey]) orderItems[typeKey][categoryKey] = {};
-                orderItems[typeKey][categoryKey][itemKey] = cart[uniqueItemKey];
-            });
+        const orderItems = {};
+        Object.keys(cart).forEach(uniqueItemKey => {
+        const [typeKey, categoryKey, itemKey] = uniqueItemKey.split('_');
+        if (!orderItems[typeKey]) orderItems[typeKey] = {};
+        if (!orderItems[typeKey][categoryKey]) orderItems[typeKey][categoryKey] = {};
+        orderItems[typeKey][categoryKey][itemKey] = cart[uniqueItemKey];
+    });
 
-            database.ref('orders').push().set({
-                type: typeName,
-                items: orderItems,
-                note: note,
-                status: "preparing",
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => {
-                cart = {};
-                updateCartDisplay();
-                document.getElementById('orderNote').value = '';
-                alert('下单成功！');
-            });
-        });
+        database.ref('orders').push().set({
+        type: typeName,
+        items: orderItems,
+        note: note,
+        status: "preparing",
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        cart = {};
+        updateCartDisplay();
+        document.getElementById('orderNote').value = '';
+        alert('下单成功！');
+    });
+    });
     }
+
 </script>
 </body>
 </html>
